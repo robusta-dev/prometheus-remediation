@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "prometheus_remediation_actions"
+name = "prometheus_remediation"
 version = "0.0.1"
 description = ""
 authors = ["Natan Yellin <aantn@users.noreply.github.com>"]
