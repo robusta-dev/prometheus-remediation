@@ -1,7 +1,7 @@
 # Introduction
 Remediate Prometheus alerts by taking action. Built for people using Prometheus and Kubernetes.
 
-Support kube-prometheus-stack and other common Prometheus distributions.
+Supports kube-prometheus-stack and other common Prometheus distributions.
 
 # Supported Actions
 
