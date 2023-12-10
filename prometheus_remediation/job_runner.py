@@ -117,3 +117,6 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
 
     if params.notify:
         event.add_enrichment([MarkdownBlock(f"Alert handling job *{job_name}* created.")])
+
+
+print("loaded extra playbooks for prometheus remediation")
