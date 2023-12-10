@@ -1,6 +1,7 @@
 import logging
 from typing import List, Tuple
 
+import hikaru
 from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec
 
 from robusta.api import (
@@ -13,12 +14,23 @@ from robusta.api import (
     PodContainer,
     PrometheusKubernetesAlert,
     RegexReplacementStyle,
+    RobustaJob,
     SlackAnnotations,
     TableBlock,
     action,
     get_job_latest_pod,
     get_resource_events_table,
     to_kubernetes_name,
+)
+from robusta.integrations.kubernetes.api_client_utils import (
+    SUCCEEDED_STATE,
+    exec_shell_command,
+    get_pod_logs,
+    prepare_pod_command,
+    to_kubernetes_name,
+    upload_file,
+    wait_for_pod_status,
+    wait_until_job_complete,
 )
 
 
@@ -35,6 +47,9 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
 
+    label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
+    alert_env_vars += label_vars
+
     return alert_env_vars
 
 
@@ -48,6 +63,8 @@ class JobParams(ActionParams):
     :var restart_policy: Job container restart policy
     :var job_ttl_after_finished: Delete finished job ttl (seconds). If omitted, jobs will not be deleted automatically.
     :var notify: Add a notification for creating the job.
+    :var wait_for_completion: Wait for the job to complete and attach it's output. Only relevant when notify=true.
+    :var completion_timeout: Maximum seconds to wait for job to complete. Only relevant when wait_for_completion=true.
     :var backoff_limit: Specifies the number of retries before marking this job failed. Defaults to 6
     :var active_deadline_seconds: Specifies the duration in seconds relative to the startTime
         that the job may be active before the system tries to terminate it; value must be
@@ -62,8 +79,10 @@ class JobParams(ActionParams):
     namespace: str = "default"
     service_account: str = None  # type: ignore
     restart_policy: str = "OnFailure"
-    job_ttl_after_finished: int = None  # type: ignore
+    job_ttl_after_finished: int = 120  # type: ignore
     notify: bool = False
+    wait_for_completion: bool = True
+    completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
 
@@ -86,6 +105,8 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     ALERT_OBJ_NAMESPACE (If present)
 
     ALERT_OBJ_NODE (If present)
+
+    ALERT_LABEL_{LABEL_NAME} for every label on the alert. For example a label named `foo` becomes `ALERT_LABEL_FOO`
 
     """
     print(f"running job for alert {event.alert_name}")
@@ -116,7 +137,12 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     job.create()
 
     if params.notify:
-        event.add_enrichment([MarkdownBlock(f"Alert handling job *{job_name}* created.")])
+        event.add_enrichment([MarkdownBlock(f"Created job from alert: *{job_name}*.")])
 
-
-print("loaded extra playbooks for prometheus remediation")
+    if params.wait_for_completion:
+        wait_until_job_complete(job, params.completion_timeout)
+        job = hikaru.from_dict(job.to_dict(), cls=RobustaJob)  # temporary workaround for https://github.com/haxsaw/hikaru/issues/15
+        pod = job.get_single_pod()
+        event.add_enrichment([
+            FileBlock("job-runner-logs.txt", pod.get_logs())
+            ])
