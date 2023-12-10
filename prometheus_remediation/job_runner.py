@@ -88,6 +88,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     ALERT_OBJ_NODE (If present)
 
     """
+    print(f"running job for alert {event.alert_name}")
     job_name = to_kubernetes_name(params.name)
     job: Job = Job(
         metadata=ObjectMeta(name=job_name, namespace=params.namespace),
