@@ -70,18 +70,19 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    github_secret: Optional[SecretStr] = None
+    secret_name: Optional[SecretStr] = None
+    secret_key: Optional[SecretStr] = None
 
 
 
-def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
+def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) -> List[EnvVar]:
     alert_subject = event.get_alert_subject()
     alert_env_vars = [
         EnvVar(name="ALERT_NAME", value=event.alert_name),
         EnvVar(name="ALERT_STATUS", value=event.alert.status),
         EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
         EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
-        # EnvVar(name="GITHUB_SECRET", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=github_secret., name="todo-db-secret")))
+        EnvVar(name="GITHUB_SECRET", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=params.secret_key, name=params.secret_key)))
     ]
     if alert_subject.namespace:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
@@ -118,7 +119,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
 
     """
     print(f"running job for alert {event.alert_name}")
-    print(f"SecretKeyVar {params.github_secret}, SecretKey{params.github_secret.get_secret_value()}")
+    # print(f"SecretKeyVar {params.github_secret}, SecretKey{params.github_secret.get_secret_value()}")
 
     job_name = to_kubernetes_name(params.name)
     job: Job = Job(
@@ -131,7 +132,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                             name=params.name,
                             image=params.image,
                             command=params.command,
-                            env=__get_alert_env_vars(event),
+                            env=__get_alert_env_vars(event, params),
                         )
                     ],
                     serviceAccountName=params.service_account,
