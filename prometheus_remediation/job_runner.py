@@ -1,5 +1,5 @@
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import hikaru
 from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec
@@ -67,7 +67,7 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    github_secret: str = None
+    github_secret: Optional[SecretStr] = None
 
 
 
@@ -78,7 +78,7 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
         EnvVar(name="ALERT_STATUS", value=event.alert.status),
         EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
         EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
-        # EnvVar(name="PGPASSWORD", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=github_secret., name="todo-db-secret")))
+        # EnvVar(name="GITHUB_SECRET", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=github_secret., name="todo-db-secret")))
     ]
     if alert_subject.namespace:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
