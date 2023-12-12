@@ -22,6 +22,9 @@ from robusta.api import (
     get_resource_events_table,
     to_kubernetes_name,
 )
+
+from pydantic import BaseModel, SecretStr, validator
+
 from robusta.integrations.kubernetes.api_client_utils import (
     SUCCEEDED_STATE,
     exec_shell_command,
