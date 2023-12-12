@@ -2,7 +2,7 @@ import logging
 from typing import List, Tuple, Optional
 
 import hikaru
-from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec
+from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec, EnvVarSource, SecretKeySelector
 
 from robusta.api import (
     ActionParams,
