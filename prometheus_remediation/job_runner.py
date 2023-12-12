@@ -70,8 +70,8 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    secret_name: Optional[SecretStr] = None
-    secret_key: Optional[SecretStr] = None
+    secret_name: str = None
+    secret_key: str = None
 
 
 
