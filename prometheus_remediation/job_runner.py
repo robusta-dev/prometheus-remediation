@@ -32,25 +32,7 @@ from robusta.integrations.kubernetes.api_client_utils import (
     wait_for_pod_status,
     wait_until_job_complete,
 )
-
-
-def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
-    alert_subject = event.get_alert_subject()
-    alert_env_vars = [
-        EnvVar(name="ALERT_NAME", value=event.alert_name),
-        EnvVar(name="ALERT_STATUS", value=event.alert.status),
-        EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
-        EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
-    ]
-    if alert_subject.namespace:
-        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
-    if alert_subject.node:
-        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
-
-    label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
-    alert_env_vars += label_vars
-
-    return alert_env_vars
+# class EnvVar(name: str, value: Optional[str]=None, valueFrom: Optional["EnvVarSource"]=None)
 
 
 class JobParams(ActionParams):
@@ -85,6 +67,29 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
+    github_secret: str = None
+
+
+
+def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
+    alert_subject = event.get_alert_subject()
+    alert_env_vars = [
+        EnvVar(name="ALERT_NAME", value=event.alert_name),
+        EnvVar(name="ALERT_STATUS", value=event.alert.status),
+        EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
+        EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
+        # EnvVar(name="PGPASSWORD", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=github_secret., name="todo-db-secret")))
+    ]
+    if alert_subject.namespace:
+        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
+    if alert_subject.node:
+        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
+
+    label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
+    alert_env_vars += label_vars
+
+    return alert_env_vars
+
 
 
 @action
@@ -110,6 +115,8 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
 
     """
     print(f"running job for alert {event.alert_name}")
+    print(f"SecretKeyVar {params.github_secret}, SecretKey{params.github_secret.get_secret_value()}")
+
     job_name = to_kubernetes_name(params.name)
     job: Job = Job(
         metadata=ObjectMeta(name=job_name, namespace=params.namespace),
