@@ -76,13 +76,12 @@ class JobParams(ActionParams):
 
 def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) -> List[EnvVar]:
     alert_subject = event.get_alert_subject()
-    print(f"SECRET NAME: {params.secret_name}, SECRET KEY: {params.secret_key}")
     alert_env_vars = [
         EnvVar(name="ALERT_NAME", value=event.alert_name),
         EnvVar(name="ALERT_STATUS", value=event.alert.status),
         EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
         EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
-        EnvVar(name="GITHUB_SECRET", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=params.secret_key, name=params.secret_name)))
+        # EnvVar(name="GITHUB_SECRET", valueFrom=EnvVarSource(secretKeyRef=SecretKeySelector(key=params.secret_key, name=params.secret_name)))
     ]
     if alert_subject.namespace:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
