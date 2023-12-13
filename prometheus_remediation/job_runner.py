@@ -70,8 +70,7 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    secret_name: str = None
-    secret_key: str = None
+    env_var: Optional[EnvVar] = None
 
 
 
@@ -89,6 +88,9 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) ->
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
+    if env_var != None:
+        alert_env_vars.append(env_var)
+    print(f"ENV VAR {params.env_var}")
 
     label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
     alert_env_vars += label_vars
