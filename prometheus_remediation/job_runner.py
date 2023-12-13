@@ -82,13 +82,14 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) ->
         EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
         EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
     ]
+    print(f"ENV VAR {params.env_var}")
     if alert_subject.namespace:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
-    if env_var != None:
-        alert_env_vars.append(env_var)
-    print(f"ENV VAR {params.env_var}")
+    if params.env_var != None:
+        alert_env_vars.append(params.env_var)
+
 
     label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
     alert_env_vars += label_vars
