@@ -70,7 +70,7 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    env_var: Optional[EnvVar] = None
+    env_var: Optional[List[EnvVar]] = None
 
 
 
