@@ -35,8 +35,6 @@ from robusta.integrations.kubernetes.api_client_utils import (
     wait_for_pod_status,
     wait_until_job_complete,
 )
-# class EnvVar(name: str, value: Optional[str]=None, valueFrom: Optional["EnvVarSource"]=None)
-
 
 class JobParams(ActionParams):
     """
