@@ -82,17 +82,13 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) ->
         EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
         EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
     ]
-    print(f"ENV VAR {params.env_var}")
+    
     if alert_subject.namespace:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
-    print(params.env_var != None)
     if params.env_var != None:
-        print(f"Appending to alert_env_vars{alert_env_vars} \n")
         alert_env_vars.extend(params.env_var)
-        print(f"After appending alert_env_vars{alert_env_vars} \n")
-
 
     label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
     alert_env_vars += label_vars
@@ -162,6 +158,6 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                 FileBlock("job-runner-logs.txt", pod.get_logs())
                 ])
         except Exception as e:
-            print(f"Timed out running {job_name} for alert {event.alert_name} due to {e}")
-            event.add_enrichment([MarkdownBlock(f"Could not fetch output from Job. Timed out waiting for job {job_name} to finish”")])
+            print(f"Timed out running {job_name} for alert {event.alert_name}")
+            event.add_enrichment([MarkdownBlock(f"Timed out waiting for Job, could not fetch output.”")])
 
