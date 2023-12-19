@@ -162,6 +162,6 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                 FileBlock("job-runner-logs.txt", pod.get_logs())
                 ])
         except Exception as e:
-            print(f"Failed running job for alert {event.alert_name} due to {e}")
-            event.add_enrichment([MarkdownBlock(f"Failed to complete the job: {e}")])
+            print(f"Timed out running {job_name} for alert {event.alert_name} due to {e}")
+            event.add_enrichment([MarkdownBlock(f"Could not fetch output from Job. Timed out waiting for job {job_name} to finish”")])
 
