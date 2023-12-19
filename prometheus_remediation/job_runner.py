@@ -154,9 +154,14 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
         event.add_enrichment([MarkdownBlock(f"Created job from alert: *{job_name}*.")])
 
     if params.wait_for_completion:
-        wait_until_job_complete(job, params.completion_timeout)
-        job = hikaru.from_dict(job.to_dict(), cls=RobustaJob)  # temporary workaround for https://github.com/haxsaw/hikaru/issues/15
-        pod = job.get_single_pod()
-        event.add_enrichment([
-            FileBlock("job-runner-logs.txt", pod.get_logs())
-            ])
+        try:
+            wait_until_job_complete(job, params.completion_timeout)
+            job = hikaru.from_dict(job.to_dict(), cls=RobustaJob)  # temporary workaround for https://github.com/haxsaw/hikaru/issues/15
+            pod = job.get_single_pod()
+            event.add_enrichment([
+                FileBlock("job-runner-logs.txt", pod.get_logs())
+                ])
+        except Exception as e:
+            print(f"Failed running job for alert {event.alert_name} due to {e}")
+            event.add_enrichment([MarkdownBlock(f"Failed to complete the job: {e}")])
+
