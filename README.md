@@ -25,7 +25,7 @@ customPlaybooks:
   - run_job_from_alert:
       command:
       - sh
-      - c
+      - -c
       - "env && sleep 60"
       image: busybox
       notify: true
