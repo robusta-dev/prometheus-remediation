@@ -35,6 +35,8 @@ from robusta.integrations.kubernetes.api_client_utils import (
     wait_for_pod_status,
     wait_until_job_complete,
 )
+# class EnvVar(name: str, value: Optional[str]=None, valueFrom: Optional["EnvVarSource"]=None)
+
 
 class JobParams(ActionParams):
     """
@@ -68,7 +70,7 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
-    env_var: Optional[List[EnvVar]] = None
+    env_vars: Optional[List[EnvVar]] = None
 
 
 
@@ -86,7 +88,7 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) ->
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
     if params.env_var != None:
-        alert_env_vars.extend(params.env_var)
+        alert_env_vars.extend(params.env_vars)
 
     label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
     alert_env_vars += label_vars
@@ -117,7 +119,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     ALERT_LABEL_{LABEL_NAME} for every label on the alert. For example a label named `foo` becomes `ALERT_LABEL_FOO`
 
     """
-    print(f"running job for alert {event.alert_name}")
+    logging.info(f"Running run_job_from alert action for alert {event.alert_name}")
     job_name = to_kubernetes_name(params.name)
     job: Job = Job(
         metadata=ObjectMeta(name=job_name, namespace=params.namespace),
@@ -145,7 +147,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     job.create()
 
     if params.notify:
-        event.add_enrichment([MarkdownBlock(f"Created Job from alert: *{job_name}*.")])
+        event.add_enrichment([MarkdownBlock(f"**Action Job Information** \n Created Job from alert: *{job_name}*.")])
 
     if params.wait_for_completion:
         try:
@@ -156,5 +158,12 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                 FileBlock("job-runner-logs.txt", pod.get_logs())
                 ])
         except Exception as e:
-            print(f"Timed out running {job_name} for alert {event.alert_name}")
-            event.add_enrichment([MarkdownBlock(f"Timed out waiting for Job, could not fetch output.")])
+            print(e, str(e))
+            if str(e) != "Failed to reach wait condition":
+                print("ERROR TRUE")
+                logging.warning(f"Action Job stopped due to Exception {e}")
+            else:
+                err_str = f"Action Job {job_name} timed out. Could not fetch output"
+                logging.warning(err_str)
+                event.add_enrichment([MarkdownBlock(err_str)])
+
