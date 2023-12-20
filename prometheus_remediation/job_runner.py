@@ -35,8 +35,6 @@ from robusta.integrations.kubernetes.api_client_utils import (
     wait_for_pod_status,
     wait_until_job_complete,
 )
-# class EnvVar(name: str, value: Optional[str]=None, valueFrom: Optional["EnvVarSource"]=None)
-
 
 class JobParams(ActionParams):
     """
@@ -87,7 +85,7 @@ def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) ->
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
     if alert_subject.node:
         alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
-    if params.env_var != None:
+    if params.env_vars != None:
         alert_env_vars.extend(params.env_vars)
 
     label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
@@ -146,8 +144,10 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
 
     job.create()
 
+
+    info_messages = []
     if params.notify:
-        event.add_enrichment([MarkdownBlock(f"**Action Job Information** \n Created Job from alert: *{job_name}*.")])
+        info_messages.append(f"Created Job from alert: *{job_name}*.")
 
     if params.wait_for_completion:
         try:
@@ -158,12 +158,15 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                 FileBlock("job-runner-logs.txt", pod.get_logs())
                 ])
         except Exception as e:
-            print(e, str(e))
             if str(e) != "Failed to reach wait condition":
-                print("ERROR TRUE")
-                logging.warning(f"Action Job stopped due to Exception {e}")
+                warning_msg = f"Action Job stopped due to Exception {e}"
+                logging.warning(warning_msg)
+                info_messages.append(warning_msg)
             else:
-                err_str = f"Action Job {job_name} timed out. Could not fetch output"
-                logging.warning(err_str)
-                event.add_enrichment([MarkdownBlock(err_str)])
+                err_str = f"Status: Timed out, could not fetch output."
+                logging.warning(f"Action Job {job_name} - {err_str}")
+                info_messages.append(err_str)
 
+    if info_messages:
+        combined_message = "\n".join(info_messages)
+        event.add_enrichment([MarkdownBlock(combined_message)])
