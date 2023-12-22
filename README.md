@@ -20,7 +20,7 @@ customPlaybooks:
 # Change the following line according to your needs
 - triggers:
   - on_prometheus_alert:
-      alert_name: TestAlert
+      alert_name: KubeJobFailed
   actions:
   - run_job_from_alert:
       command:
@@ -30,6 +30,13 @@ customPlaybooks:
       image: busybox
       notify: true
       wait_for_completion: true
+      completion_timeout: 100
+      env_vars: # Pass environment variables including secrets
+      - name: GITHUB_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: robusta-github-key
+            key: githubapikey
 ```
 
 3. Do a Helm upgrade to apply the new values: `helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>`
@@ -44,5 +51,10 @@ robusta demo-alert --alert=TestAlert --labels=label1=123,label2=abc
 
 If running multiple times in a row, change a label value each time so that AlertManager doesn't supress retransmissions.
 
+# Sample Alerts
+
+![DemoImage](./images/demoimage.png)
+
 # Community
 [Ask questions and request features on our Slack.](https://home.robusta.dev/slack)
+                                                                                                                                                  
