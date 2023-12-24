@@ -1,8 +1,8 @@
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import hikaru
-from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec
+from hikaru.model.rel_1_26 import Container, EnvVar, Job, JobSpec, JobStatus, ObjectMeta, PodSpec, PodTemplateSpec, EnvVarSource, SecretKeySelector
 
 from robusta.api import (
     ActionParams,
@@ -22,6 +22,9 @@ from robusta.api import (
     get_resource_events_table,
     to_kubernetes_name,
 )
+
+from pydantic import BaseModel, SecretStr, validator
+
 from robusta.integrations.kubernetes.api_client_utils import (
     SUCCEEDED_STATE,
     exec_shell_command,
@@ -32,26 +35,6 @@ from robusta.integrations.kubernetes.api_client_utils import (
     wait_for_pod_status,
     wait_until_job_complete,
 )
-
-
-def __get_alert_env_vars(event: PrometheusKubernetesAlert) -> List[EnvVar]:
-    alert_subject = event.get_alert_subject()
-    alert_env_vars = [
-        EnvVar(name="ALERT_NAME", value=event.alert_name),
-        EnvVar(name="ALERT_STATUS", value=event.alert.status),
-        EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
-        EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
-    ]
-    if alert_subject.namespace:
-        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
-    if alert_subject.node:
-        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
-
-    label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
-    alert_env_vars += label_vars
-
-    return alert_env_vars
-
 
 class JobParams(ActionParams):
     """
@@ -85,6 +68,31 @@ class JobParams(ActionParams):
     completion_timeout: int = 300
     backoff_limit: int = None  # type: ignore
     active_deadline_seconds: int = None  # type: ignore
+    env_vars: Optional[List[EnvVar]] = None
+
+
+
+def __get_alert_env_vars(event: PrometheusKubernetesAlert, params: JobParams) -> List[EnvVar]:
+    alert_subject = event.get_alert_subject()
+    alert_env_vars = [
+        EnvVar(name="ALERT_NAME", value=event.alert_name),
+        EnvVar(name="ALERT_STATUS", value=event.alert.status),
+        EnvVar(name="ALERT_OBJ_KIND", value=alert_subject.subject_type.value),
+        EnvVar(name="ALERT_OBJ_NAME", value=alert_subject.name),
+    ]
+    
+    if alert_subject.namespace:
+        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NAMESPACE", value=alert_subject.namespace))
+    if alert_subject.node:
+        alert_env_vars.append(EnvVar(name="ALERT_OBJ_NODE", value=alert_subject.node))
+    if params.env_vars != None:
+        alert_env_vars.extend(params.env_vars)
+
+    label_vars = [EnvVar(name=f"ALERT_LABEL_{k.upper()}", value=v) for k,v in event.alert.labels.items()]
+    alert_env_vars += label_vars
+
+    return alert_env_vars
+
 
 
 @action
@@ -109,7 +117,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
     ALERT_LABEL_{LABEL_NAME} for every label on the alert. For example a label named `foo` becomes `ALERT_LABEL_FOO`
 
     """
-    print(f"running job for alert {event.alert_name}")
+    logging.info(f"Running run_job_from alert action for alert {event.alert_name}")
     job_name = to_kubernetes_name(params.name)
     job: Job = Job(
         metadata=ObjectMeta(name=job_name, namespace=params.namespace),
@@ -121,7 +129,7 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
                             name=params.name,
                             image=params.image,
                             command=params.command,
-                            env=__get_alert_env_vars(event),
+                            env=__get_alert_env_vars(event, params),
                         )
                     ],
                     serviceAccountName=params.service_account,
@@ -136,13 +144,29 @@ def run_job_from_alert(event: PrometheusKubernetesAlert, params: JobParams):
 
     job.create()
 
+
+    info_messages = []
     if params.notify:
-        event.add_enrichment([MarkdownBlock(f"Created job from alert: *{job_name}*.")])
+        info_messages.append(f"*Created Job from alert*: {job_name}.")
 
     if params.wait_for_completion:
-        wait_until_job_complete(job, params.completion_timeout)
-        job = hikaru.from_dict(job.to_dict(), cls=RobustaJob)  # temporary workaround for https://github.com/haxsaw/hikaru/issues/15
-        pod = job.get_single_pod()
-        event.add_enrichment([
-            FileBlock("job-runner-logs.txt", pod.get_logs())
-            ])
+        try:
+            wait_until_job_complete(job, params.completion_timeout)
+            job = hikaru.from_dict(job.to_dict(), cls=RobustaJob)  # temporary workaround for https://github.com/haxsaw/hikaru/issues/15
+            pod = job.get_single_pod()
+            event.add_enrichment([
+                FileBlock("job-runner-logs.txt", pod.get_logs())
+                ])
+        except Exception as e:
+            if str(e) != "Failed to reach wait condition":
+                warning_msg = f"Error running Job: {e}"
+                logging.warning(warning_msg)
+                info_messages.append(warning_msg)
+            else:
+                err_str = f"*Status:* Timed out, could not fetch output."
+                logging.warning(f"Failed to fetch Job result: {err_str}")
+                info_messages.append(err_str)
+
+    if info_messages:
+        combined_message = "\n".join(info_messages)
+        event.add_enrichment([MarkdownBlock(combined_message)])
