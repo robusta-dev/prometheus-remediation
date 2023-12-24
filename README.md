@@ -20,7 +20,7 @@ customPlaybooks:
 # Change the following line according to your needs
 - triggers:
   - on_prometheus_alert:
-      alert_name: KubeJobFailed
+      alert_name: TestAlert
   actions:
   - run_job_from_alert:
       command:
