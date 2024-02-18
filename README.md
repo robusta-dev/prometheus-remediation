@@ -23,15 +23,17 @@ customPlaybooks:
       alert_name: TestAlert
   actions:
   - run_job_from_alert:
+      # you can access information from the alert by environment variables
       command:
       - sh
       - -c
-      - "env && sleep 60"
+      - "$ALERT_NAME fired... Now dumping all available environment variables, which include alert metadata and labales" && env && sleep 60"
       image: busybox
       notify: true
       wait_for_completion: true
       completion_timeout: 100
-      env_vars: # Pass environment variables including secrets
+      # you can also inject secrets from the Robusta pod itself into the remediation Job's Pod
+      env_vars:
       - name: GITHUB_SECRET
         valueFrom:
           secretKeyRef:
