@@ -4,13 +4,6 @@ version = "0.0.1"
 description = ""
 authors = ["Natan Yellin <aantn@users.noreply.github.com>"]
 
-[tool.poetry.dependencies]
-# if your playbook requires additional dependencies, add them here
-#some-dependency = "^1.2.3"
-
-[tool.poetry.dev-dependencies]
-robusta-cli = "^0.10.25"
-
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
